@@ -76,16 +76,80 @@ analyseHeader:
 			lb $t1, 28($t0)
 			bne $t1, 24, errReadFile
 
-			#Checking BiCompress field, wich must be zero
+			#Checking BiCompress field, which must be zero
 			lb $t1, 30($t0)
 			bne $t1, 0, errReadFile
 		#end bitmapHeaderCheck
 	#end errorControl
 
 	#At this point we already know that the image is the type we are looking for
+	#Lets save some important data then!
 
 	#dataSave:
-		#
+		# $s0 will be the adress located in the stack that will store:
+		#		0($s0) = Image start address
+		# 		4($s0) = Image width (largura) in pixels
+		#		8($s0) = Image height (altura) in pixels
+		# This memory segment will be used as reference for the various operations
+		#		that will be performed.
+
+		addi $sp, $sp, -12
+		add $s0, $sp, $zero
+
+		#loadWidth:
+			#Load each byte of the field and dislocate to compose the full int number
+			lb $t1, 18($t0)
+			lb $t2, 19($t0)
+			sll $t2, $t2, 8
+			add $t1, $t1, $t2
+			lb $t2, 20($t0)
+			sll $t2, $t2, 16
+			add $t1, $t1, $t2
+			lb $t2, 21($t0)
+			sll $t2, $t2, 24
+			add $t1, $t1, $t2
+		#end loadWidth
+
+		#loadHeight:
+			#Load each byte of the field and dislocate to compose the full int number
+			lb $t2, 22($t0)
+			lb $t3, 23($t0)
+			sll $t3, $t3, 8
+			add $t2, $t2, $t3
+			lb $t3, 24($t0)
+			sll $t3, $t3, 16
+			add $t2, $t2, $t3
+			lb $t3, 25($t0)
+			sll $t3, $t3, 24
+			add $t2, $t2, $t3
+		#end loadWidth		
+
+		#I know that lwr would do the trick but since it wasnt working at the 
+		#	time, i did this not so elegant thing with loadHeight and loadWidth that work.
+
+		#loadSize: #Its important to know the size of the image for the apropriate
+					# stack pointer decrement
+			#Load each byte of the field and dislocate to compose the full int number
+			lb $t3, 34($t0)
+			lb $t4, 35($t0)
+			sll $t4, $t4, 8
+			add $t3, $t3, $t4
+			lb $t4, 36($t0)
+			sll $t4, $t4, 16
+			add $t3, $t3, $t4
+			lb $t4, 37($t0)
+			sll $t4, $t4, 24
+			add $t3, $t3, $t4
+		#end loadSize
+		
+		sw $t3, 0($s0)
+		sw $t1, 4($s0)
+		sw $t2, 8($s0)
+
+
+
+
+
 
 
 	#end dataSave
@@ -99,6 +163,20 @@ analyseHeader:
 
 	jr $ra
 #end analyseHeader
+
+loadWord:
+	lb $t7, 0($t9)
+	lb $t8, 1($t9)
+	sll $t8, $t8, 8
+	add $t7, $t7, $t8
+	lb $t8, 2($t9)
+	sll $t8, $t8, 12
+	add $t7, $t7, $t8
+	lb $t8, 3($t9)
+	sll $t8, $t8, 16
+	add $t7, $t7, $t7
+	jr $ra
+#end loadWord
 
 openFile:
 	#sycall for open the file
