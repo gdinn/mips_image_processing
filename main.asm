@@ -5,6 +5,8 @@ strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp c
 filename: .asciiz "img.bmp"
 header: .space 540	#54 bytes is the standard header size for a true color bmp image 
 					#		to read
+					# The pixel size must bit 3 bytes (24bits) too.
+					# Uncompressed image as well
 
 
 
@@ -36,33 +38,54 @@ analyseHeader:
 	la $t0, header
 
 	#errorControl:
-		#The first 2 bytes are suposed to be (424d)h
-		lb $t1, 0($t0)	#Should be (42)h
-		lb $t2, 1($t0)	#Should be (4D)h
-		bne $t1, 0x42, errReadFile
-		bne $t2, 0x4d, errReadFile
+		#fileHeaderCheck
+			#The first 2 bytes are suposed to be (424d)h
+			lb $t1, 0($t0)	#Should be (42)h
+			lb $t2, 1($t0)	#Should be (4D)h
+			bne $t1, 0x42, errReadFile
+			bne $t2, 0x4d, errReadFile
 
-		#The 7th, 8th, 9th and 10th bytes are reserved and suposed to be 0
-		#Since memory is zero-indexed we start by the address of number 6
-		lb $t1, 6($t0)
-		lb $t2, 7($t0)
-		lb $t3, 8($t0)
-		lb $t4, 9($t0)
-		bne $t1, $zero, errReadFile
-		bne $t2, $zero, errReadFile
-		bne $t3, $zero, errReadFile
-		bne $t4, $zero, errReadFile
+			#The 7th, 8th, 9th and 10th bytes are reserved and suposed to be 0
+			#Since memory is zero-indexed we start by the address of number 6
+			lb $t1, 6($t0)
+			lb $t2, 7($t0)
+			lb $t3, 8($t0)
+			lb $t4, 9($t0)
+			bne $t1, $zero, errReadFile
+			bne $t2, $zero, errReadFile
+			bne $t3, $zero, errReadFile
+			bne $t4, $zero, errReadFile
 
-		#Since we are dealing with a True Color bmp image, we should check if the
-		#	BfOffSetBits field is (54)d as expected.
-		lb $t1, 10($t0)
-		bne $t1, 54, errReadFile
+			#Since we are dealing with a True Color bmp image, we should check if the
+			#	BfOffSetBits field is (54)d as expected.
+			lb $t1, 10($t0)
+			bne $t1, 54, errReadFile
+		#end fileHeaderCheck
+
+		#bitmapHeaderCheck
+			#Checking BiSize field that has a fixed value of (40)d
+			lb $t1, 14($t0)
+			bne $t1, 40, errReadFile
+
+			#Checking the BiPlane field that has a fixed value of (1)d
+			lb $t1, 26($t0)
+			bne $t1, 1, errReadFile
+
+			#Checking BiBitCount field, that says how much bits a pixel need
+			#	If more or less than 24 the program will abort.
+			lb $t1, 28($t0)
+			bne $t1, 24, errReadFile
+
+			#Checking BiCompress field, wich must be zero
+			lb $t1, 30($t0)
+			bne $t1, 0, errReadFile
+		#end bitmapHeaderCheck
 	#end errorControl
 
 	#At this point we already know that the image is the type we are looking for
 
 	#dataSave:
-	
+		#
 
 
 	#end dataSave
