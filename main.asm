@@ -3,7 +3,7 @@
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
 filename: .asciiz "img.bmp"
-header: .space 540	#54 bytes is the standard header size for a true color bmp image 
+header: .space 54	#54 bytes is the standard header size for a true color bmp image 
 					#		to read
 					# The pixel size must bit 3 bytes (24bits) too.
 					# Uncompressed image as well
@@ -22,17 +22,59 @@ main:
 	li $a2, 54			# No. of bytes to read
 	jal readHeader
 		#readHeader will take openFile's return (file descriptor $v0) plus $a1 and $a2.
+	
+	add $s2, $a0, $zero #save file descriptor
 
 	la $a0, header 		#$a0 will be the address of the readen data.
 						#It's important that the header follow the 54 byte rule.
 	jal analyseHeader
 		#analyseHeader will analyse the info that was read by readHeader and will put the 
-		#		most relevant info at $s0.
+		#		most relevant info at $s0 and will alocate the suficient amount of stack
+		#		to $s1 to store the file in storeImage procedure.
+
+	jal storeImage
+
+	jal dispOriginal
 
 	#encerra a execução do programa
 	jal endProgram
 
-		
+dispOriginal:
+	la $t0, 0x10008000		#screen address
+	add $t1, $s1, $zero 	#iterative data address
+	li $t2, 0 			#index
+	lw $t3, 0($s0)			#limit number of iterations
+	loop_DispOriginal:
+		beq $t2, $t3, endProgram
+
+		lb $t4, 0($t1)
+
+		lb $t5, 1($t1)
+		sll $t5, $t5, 8
+		add $t4, $t4, $t5
+
+		lb $t5, 2($t1)
+		sll $t5, $t5, 16
+		add $t4, $t4, $t5
+
+		sw $t4, 0($t0)
+		add $t1, $t1, 3
+		add $t0, $t0, 4
+		add $t2, $t2, 3
+		j loop_DispOriginal
+	jr $ra
+#end dispOriginal
+
+
+storeImage:
+	add $a1, $s1, $zero
+	lw $a2, 0($s0)
+	add $a0, $s2, $zero
+	li $v0, 14			# read file parameter
+	syscall				
+	blt $v0, $zero, errReadFile
+	jr $ra
+#end storeImage
 
 analyseHeader:
 	la $t0, header
@@ -140,28 +182,23 @@ analyseHeader:
 			lb $t4, 37($t0)
 			sll $t4, $t4, 24
 			add $t3, $t3, $t4
-		#end loadSize
-		
+
+		#end loadSize	
+
+		#Save obtained values at $s0
 		sw $t3, 0($s0)
 		sw $t1, 4($s0)
 		sw $t2, 8($s0)
 
+		#Allocate the size of the bitmap of the image in bytes at the stack.
+		sub $sp, $sp, $t3
+		add $s1, $sp, $zero
 
 
-
-
-
-
-	#end dataSave
-
-
-
-
-	
-	
-	
+	#end dataSave	
 
 	jr $ra
+
 #end analyseHeader
 
 loadWord:
