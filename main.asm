@@ -1,5 +1,14 @@
 .data
 
+strMenuHr: .asciiz "##################################################### \n"
+strMenuOpts: .asciiz "Select an option: \n"
+srtMenuOp1: .asciiz "1 - Load image into display \n"
+strMenuOp2: .asciiz "2 - Rotate colors \n"
+strMenuOp3: .asciiz "3 - Rotate image \n"
+strMenuOp4: .asciiz "4 - Invert colors \n"
+strMenuOp5: .asciiz "5 - Greyscale \n"
+strMenuOp6: .asciiz "6 - Contrast adjust \n"
+
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
 filename: .asciiz "img.bmp"
@@ -7,43 +16,64 @@ header: .space 54	#54 bytes is the standard header size for a true color bmp ima
 					#		to read
 					# The pixel size must bit 3 bytes (24bits) too.
 					# Uncompressed image as well
-
-
-
 .text
 
-main:	
+main:
+
+	jal loadImage
+	#Will read the image at the same directory as mars is located and loads and copy at $sp and
+	#	$gp. The idea behind it is making two copies is that one of these will be the displayed 
+	#	image with (or without) filters applied. If the user chooses he can reset the image to 
+	#	the the original state wich means a copy of the data at $sp to $gp.
+	#	Use: $a0~$a2, $t0~$t9, $v0 and $v1. $v0 and $v1 will be the returns with the address to the
+	#		data info and the data.
+
+	jal endProgram #Lembrar de devolver toda a memória
+#end main
+
+loadImage:
+	add $t6, $ra, $zero
+
 	la $a0, filename
 	jal openFile
 		#openFile will take $a0 as the name of the file and will take care of
 		#		the rest of the parameters to open the file.
+		#Use: $a0, $a1, $v0. $v0 will return file descriptor
 
 	la $a1, header 		# Address of the space to copy the file header
 	li $a2, 54			# No. of bytes to read
 	jal readHeader
 		#readHeader will take openFile's return (file descriptor $v0) plus $a1 and $a2.
+		#Use: $a0, $a1, $a2, $v0. $a0 will return the memory address with the raw data of the header
 	
-	add $s2, $a0, $zero #save file descriptor
+	add $t7, $a0, $zero #save file descriptor to use in storeImage procedure
 
 	la $a0, header 		#$a0 will be the address of the readen data.
 						#It's important that the header follow the 54 byte rule.
 	jal analyseHeader
 		#analyseHeader will analyse the info that was read by readHeader and will put the 
-		#		most relevant info at $s0 and will alocate the suficient amount of stack
-		#		to $s1 to store the file in storeImage procedure.
+		#		most relevant info at $t8 and will alocate the suficient amount of stack
+		#		to $t9 to store the file in storeImage procedure.
+		#Use $t0, $t1, $t2, $t3, $t4. Will output $t8 as the relevant info and $t9 as the image data.
 
 	jal storeImage
+		#Use $a0, $a1, $a2, $t8, $t9, $t7 and $v0.
 
 	jal dispOriginal
+		#Use $t0, $t1, $t2, $t3, $t4, $t5, $t8 and $t9.
 
-	#encerra a execução do programa
-	jal endProgram
+	add $v0, $t8, $zero 	#Return the data info
+	add $v1, $t9, $zero 	#Return the data
+
+	add $ra, $t6, $zero
+	jr $ra
+#end loadImage
 
 dispOriginal:
 	la $t0, 0x10008000		#screen address
-	add $t1, $s1, $zero 	#iterative data address
+	add $t1, $t9, $zero 	#iterative data address
 	li $t2, 0 			#index
-	lw $t3, 0($s0)			#limit number of iterations
+	lw $t3, 0($t8)			#limit number of iterations
 	loop_DispOriginal:
 		beq $t2, $t3, endProgram
 
@@ -67,9 +97,9 @@ dispOriginal:
 
 
 storeImage:
-	add $a1, $s1, $zero
-	lw $a2, 0($s0)
-	add $a0, $s2, $zero
+	add $a1, $t9, $zero
+	lw $a2, 0($t8)
+	add $a0, $t7, $zero
 	li $v0, 14			# read file parameter
 	syscall				
 	blt $v0, $zero, errReadFile
@@ -128,15 +158,15 @@ analyseHeader:
 	#Lets save some important data then!
 
 	#dataSave:
-		# $s0 will be the adress located in the stack that will store:
-		#		0($s0) = Image start address
-		# 		4($s0) = Image width (largura) in pixels
-		#		8($s0) = Image height (altura) in pixels
+		# $t8 will be the adress located in the stack that will store:
+		#		0($t8) = Image start address
+		# 		4($t8) = Image width (largura) in pixels
+		#		8($t8) = Image height (altura) in pixels
 		# This memory segment will be used as reference for the various operations
 		#		that will be performed.
 
 		addi $sp, $sp, -12
-		add $s0, $sp, $zero
+		add $t8, $sp, $zero
 
 		#loadWidth:
 			#Load each byte of the field and dislocate to compose the full int number
@@ -185,14 +215,14 @@ analyseHeader:
 
 		#end loadSize	
 
-		#Save obtained values at $s0
-		sw $t3, 0($s0)
-		sw $t1, 4($s0)
-		sw $t2, 8($s0)
+		#Save obtained values at $t8
+		sw $t3, 0($t8)
+		sw $t1, 4($t8)
+		sw $t2, 8($t8)
 
 		#Allocate the size of the bitmap of the image in bytes at the stack.
 		sub $sp, $sp, $t3
-		add $s1, $sp, $zero
+		add $t9, $sp, $zero
 
 
 	#end dataSave	
@@ -200,20 +230,6 @@ analyseHeader:
 	jr $ra
 
 #end analyseHeader
-
-loadWord:
-	lb $t7, 0($t9)
-	lb $t8, 1($t9)
-	sll $t8, $t8, 8
-	add $t7, $t7, $t8
-	lb $t8, 2($t9)
-	sll $t8, $t8, 12
-	add $t7, $t7, $t8
-	lb $t8, 3($t9)
-	sll $t8, $t8, 16
-	add $t7, $t7, $t7
-	jr $ra
-#end loadWord
 
 openFile:
 	#sycall for open the file
