@@ -31,6 +31,7 @@ main:
 	add $s0, $v0, $zero
 	add $s1, $v1, $zero
 
+
 	add $a0, $s0, $zero
 	add $a1, $s1, $zero
 
@@ -38,8 +39,37 @@ main:
 	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
 	#	Use: $a0 and $a1 which are the image properties and data, respectively.
 
+	add $a0, $s0, $zero
+	add $a1, $s1, $zero
+	jal dispOriginal
+	#Will read the image data from the stack and clean the display image
+	#	Use $t0, $t1, $t2, $t3, $t4, $t5, $t8 and $t9.	
+	
+	add $a0, $s0, $zero
+	add $a1, $s1, $zero	
+	jal copyImage
+	#Will copy the image and its information to an address at the stack
+	#	Use
+
 	jal endProgram #Lembrar de devolver toda a memória
 #end main
+
+
+copyImage:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: data address backup
+	#		t2: address of the new region of the stack with the backup image date
+
+	add $t0, $a0, $zero
+	add $t1, $a1, $zero
+	sw $t2, 0($t0)
+	sub $sp, $sp, $t2
+	add $t2, $sp, $zero
+	
+
+	jr $ra
+#end copyImage
 
 rotateColors:
 	#	Register usage:
@@ -53,7 +83,6 @@ rotateColors:
 	#		t5: image byte
 
 
-	add $t9, $ra, $zero
 	add $t0, $a0, $zero
 	add $t1, $a1, $zero
 
@@ -71,23 +100,20 @@ rotateColors:
 
 	loop_rotateColors:
 		beq $t3, $t4, end_loop_rotateColors
-		lb $t5, 2($t2)
-		lb $t6, 0($t2)
+		lb $t5, 3($t2)			#ou lb $t5, 2($t2)
+		lb $t6, 1($t2)			#ou lb $t6, 0($t2)
 		sll $t6, $t6, 8 
 		add $t5, $t5, $t6
-		lb $t7, 1($t2)
+		lb $t7, 2($t2)			#ou lb $t7, 1($t2)
 		sll $t7, $t7, 16
 		add $t5, $t5, $t7
 		sw $t5, 0($t2)
-	
-
 		add $t2, $t2, 4
 		add $t4, $t4, 1
 		j loop_rotateColors
 	end_loop_rotateColors:		
 	#end
 
-	add $ra, $t9, $zero
 	jr $ra	
 #end rotateColors
 	
@@ -117,9 +143,12 @@ loadImage:
 		#		to $t9 to store the file in storeImage procedure.
 		#Use $t0, $t1, $t2, $t3, $t4. Will output $t8 as the relevant info and $t9 as the image data.
 
+
 	jal storeImage
 		#Use $a0, $a1, $a2, $t8, $t9, $t7 and $v0.
 
+	add $a0, $t8, $zero
+	add $a1, $t9, $zero
 	jal dispOriginal
 		#Use $t0, $t1, $t2, $t3, $t4, $t5, $t8 and $t9.
 
@@ -130,18 +159,19 @@ loadImage:
 	jr $ra
 #end loadImage
 
+
 dispOriginal:
 	la $t0, 0x10008000		#screen address
 
-	lw $t1, 4($t8)
-	lw $t2, 8($t8)
+	lw $t1, 4($a0)
+	lw $t2, 8($a0)
 	mul $t3, $t1, $t2
 	mul $t3, $t3, 4
 	add $t0, $t0, $t3 
 
-	add $t1, $t9, $zero 	#iterative data address
+	add $t1, $a1, $zero 	#iterative data address
 	li $t2, 0 			#index
-	lw $t3, 0($t8)			#limit number of iterations
+	lw $t3, 0($a0)			#limit number of iterations
 	loop_dispOriginal:
 		beq $t2, $t3, end_loop_dispOriginal
 
@@ -164,6 +194,8 @@ dispOriginal:
 	#end
 	jr $ra
 #end dispOriginal
+
+
 
 storeImage:
 	add $a1, $t9, $zero
