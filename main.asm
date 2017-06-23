@@ -28,8 +28,69 @@ main:
 	#	Use: $a0~$a2, $t0~$t9, $v0 and $v1. $v0 and $v1 will be the returns with the address to the
 	#		data info and the data.
 
+	add $s0, $v0, $zero
+	add $s1, $v1, $zero
+
+	add $a0, $s0, $zero
+	add $a1, $s1, $zero
+
+	jal rotateColors
+	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
+	#	Use: $a0 and $a1 which are the image properties and data, respectively.
+
 	jal endProgram #Lembrar de devolver toda a memória
 #end main
+
+rotateColors:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: data address backup
+	#		t2: screen iterative address beggining by 0x10008000
+	#			t3(temporary): height of the image
+	#			t4(temporary): width of the image
+	#		t3: max number of iterations
+	#		t4: iterative index
+	#		t5: image byte
+
+
+	add $t9, $ra, $zero
+	add $t0, $a0, $zero
+	add $t1, $a1, $zero
+
+	la $t2, 0x10008000		#t2: screen start address (iterative)
+
+	lw $t3, 4($t0)			
+	lw $t4, 8($t0)			
+	mul $t3, $t3, $t4
+
+	#lw $t3, 0($t0)
+
+	#mul $t3, $t3, 4			#t3: max number of iterations
+
+	li $t4, 1				#t4: iterative index
+
+	loop_rotateColors:
+		beq $t3, $t4, end_loop_rotateColors
+		lb $t5, 2($t2)
+		lb $t6, 0($t2)
+		sll $t6, $t6, 8 
+		add $t5, $t5, $t6
+		lb $t7, 1($t2)
+		sll $t7, $t7, 16
+		add $t5, $t5, $t7
+		sw $t5, 0($t2)
+	
+
+		add $t2, $t2, 4
+		add $t4, $t4, 1
+		j loop_rotateColors
+	end_loop_rotateColors:		
+	#end
+
+	add $ra, $t9, $zero
+	jr $ra	
+#end rotateColors
+	
 
 loadImage:
 	add $t6, $ra, $zero
@@ -71,11 +132,18 @@ loadImage:
 
 dispOriginal:
 	la $t0, 0x10008000		#screen address
+
+	lw $t1, 4($t8)
+	lw $t2, 8($t8)
+	mul $t3, $t1, $t2
+	mul $t3, $t3, 4
+	add $t0, $t0, $t3 
+
 	add $t1, $t9, $zero 	#iterative data address
 	li $t2, 0 			#index
 	lw $t3, 0($t8)			#limit number of iterations
-	loop_DispOriginal:
-		beq $t2, $t3, endProgram
+	loop_dispOriginal:
+		beq $t2, $t3, end_loop_dispOriginal
 
 		lb $t4, 0($t1)
 
@@ -89,12 +157,13 @@ dispOriginal:
 
 		sw $t4, 0($t0)
 		add $t1, $t1, 3
-		add $t0, $t0, 4
+		add $t0, $t0, -4
 		add $t2, $t2, 3
-		j loop_DispOriginal
+		j loop_dispOriginal		
+	end_loop_dispOriginal:
+	#end
 	jr $ra
 #end dispOriginal
-
 
 storeImage:
 	add $a1, $t9, $zero
