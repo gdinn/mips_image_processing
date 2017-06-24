@@ -6,18 +6,24 @@ vetor:	.word 1 2 3 4 5 6 7 8 9
 
 li $a0, 3
 la $a1, 0x10008000
-jal rotate90l
+jal rotate90r
 li $v0, 10
 syscall
 
 #for an nxm matrix where n=m
 #https://en.wikipedia.org/wiki/In-place_matrix_transposition
 
+#now
+#for n = 0 to N - 2
+#    for m = N - 1 to  n + 1 
+#        swap A(n,m) with A(m,n)
+
+#then
 #for n = 0 to N - 2
 #    for m = n + 1 to N - 1
 #        swap A(n,m) with A(m,n)
 
-rotate90l:
+rotate90r:
 	#	Register usage:
 	#		a0: image height or width in pixels(since they are equal doesnt matter) 
 	#		a1:	start address of the image
@@ -42,16 +48,6 @@ rotate90l:
 	#			28($t9): t7
 	#			32($t9): t8
 	#			36($t9): ra (return address)
-
-#now
-#for n = 0 to N - 2
-#    for m = N - 1 to  n + 1 
-#        swap A(n,m) with A(m,n)
-
-#then
-#for n = 0 to N - 2
-#    for m = n + 1 to N - 1
-#        swap A(n,m) with A(m,n)
 
 	li $t0, 0 				#t0 will be n
 	add $t1, $a0, $zero		 	#t1 will be N
@@ -111,7 +107,7 @@ rotate90l:
 	end_forNminus2:
 	#end
 	jr $ra
-#end rotate90l
+#end rotate90r
 
 swapTerms:
 	#	Register usage:
@@ -123,18 +119,3 @@ swapTerms:
 	sw $t0, 0($a1)
 	jr $ra
 #end swapTerms
-
-	#	Register usage:
-	#		a0: image height or width in pixels(since they are equal doesnt matter) 
-	#		a1:	start address of the image
-	#
-	#		t0: line iterative index (n)
-	#		t1: number of matrix lines (N)
-	#		t2: stop condition of the upper for (forNminus2)
-	#		t3: column iterative index (m)
-	#		t4: stop condidition of the lower for (forNminus1)
-	#		t5: byte A(n,m) address
-	#		t6: byte A(m,n) address
-	#		t7: line break address amount
-	#		t8: start address for iterating A(n,n)
-	#		t9: stack for saving registers before swapTerms call
