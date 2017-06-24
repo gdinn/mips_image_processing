@@ -56,14 +56,14 @@ rotate90r:
 	mul $t7, $a0, 4			#t7 will be \n address amount
 	add $t8, $a1, $t7		#t8 will be the A(n,n) adress
 	add $t8, $t8, -4
-	forNminus2:
-		beq $t0, $t2, end_forNminus2
+	forNminus2r:
+		beq $t0, $t2, end_forNminus2r
 		add $t4, $t0, 1		#t3 will be m
 		add $t3, $t1, -1	#t4 will be the stop condition of forNminus1
 		add $t5, $t8, $zero #refresh the address of A(n,m)
 		add $t6, $t8, $zero #refresh the address of A(m,n)
-		forNminus1:
-			beq $t3, $t4, end_forNminus1
+		forNminus1r:
+			beq $t3, $t4, end_forNminus1r
 			sub $t5, $t5, 4
 			add $t6, $t6, $t7
 			#registerSave:
@@ -97,14 +97,14 @@ rotate90r:
 				add $sp, $sp, 40
 			#end registerRecovery
 			sub $t3, $t3, 1
-			j forNminus1
-		end_forNminus1:
+			j forNminus1r
+		end_forNminus1r:
 		#end
 		add $t8, $t8, $t7
 		sub $t8, $t8, 4
 		add $t0, $t0, 1
-		j forNminus2
-	end_forNminus2:
+		j forNminus2r
+	end_forNminus2r:
 	#end
 	jr $ra
 #end rotate90r
