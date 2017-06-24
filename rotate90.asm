@@ -4,7 +4,7 @@ vetor:	.word 1 2 3 4 5 6 7 8 9
 
 .text
 
-li $a0, 12
+li $a0, 3
 la $a1, 0x10008000
 jal rotate90l
 li $v0, 10
@@ -48,10 +48,10 @@ rotate90l:
 #        swap A(n,m) with A(m,n)
 
 	li $t0, 0 				#t0 will be n
-	div $t1, $a0, 4		 	#t1 will be N
+	add $t1, $a0, $zero		 	#t1 will be N
 	add $t1, $t1, 1 		#Will correct the zero-indexing of the matrix address
 	add $t2, $t1, -2		#t2 will be the stop conditon of forNminus2
-	add $t7, $a0, $zero			#t7 will be \n address amount
+	mul $t7, $a0, 4			#t7 will be \n address amount
 	add $t8, $a1, $zero		#t8 will be the A(n,n) adress
 	forNminus2:
 		beq $t0, $t2, end_forNminus2
