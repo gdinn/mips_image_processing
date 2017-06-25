@@ -7,10 +7,12 @@ srtMenuOp1: .asciiz "1 - Reset image \n"
 strMenuOp2: .asciiz "2 - Rotate colors \n"
 strMenuOp3: .asciiz "3 - Rotate image 90 degree left \n"
 strMenuOp4: .asciiz "4 - Rotate image 90 degree right \n"
-strMenuOp5: .asciiz "5 - Invert colors \n"
-strMenuOp6: .asciiz "6 - Greyscale \n"
-strMenuOp7: .asciiz "7 - Contrast adjust \n"
-strMenuOp8: .asciiz "Other - Exit \n"
+strMenuOp5: .asciiz "5 - Mirror image through x axis \n"
+strMenuOp6: .asciiz "6 - Mirror image through y axis \n"
+strMenuOp7: .asciiz "7 - Invert colors \n"
+strMenuOp8: .asciiz "8 - Greyscale \n"
+strMenuOp9: .asciiz "9 - Contrast adjust \n"
+strMenuOp10: .asciiz "Other - Exit \n"
 
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
@@ -75,6 +77,14 @@ main:
 		la $a0, strMenuOp8
 		syscall		
 
+		li $v0, 4
+		la $a0, strMenuOp9
+		syscall	
+
+		li $v0, 4
+		la $a0, strMenuOp10
+		syscall
+
 		li $v0, 5
 		syscall
 
@@ -88,10 +98,10 @@ main:
 		beq $t0, 2, rotateColorsCall
 		beq $t0, 3, rotate90lCall
 		beq $t0, 4, rotate90rCall
-		#beq $t0, 5, invertColorsCall
+		beq $t0, 5, flipXCall
 		#beq $t0, 6, greyScaleCall
 		#beq $t0, 7, contrastAdjustCall		
-		bgt $t0, 7, endProgram
+		bgt $t0, 10, endProgram
 	#end menuOptsScr
 
 
@@ -113,6 +123,9 @@ main:
 		lw $a0, 4($s0)	
 		la $a1, 0x10008000
 		jal rotate90l
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal flipX		
 		j menuOptsScr		
 	#end rotate90lCall
 	
@@ -120,8 +133,18 @@ main:
 		lw $a0, 4($s0)	
 		la $a1, 0x10008000
 		jal rotate90r
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal flipX		
 		j menuOptsScr
 	#end rotate90rCall
+
+	flipXCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal flipX
+		j menuOptsScr
+	#end rotateXCall
 
 
 	#//jal rotateColors
@@ -333,7 +356,65 @@ swapTerms:
 	jr $ra
 #end swapTerms
 
+flipX:
+	#	Register usage:
+	#		a0: data info
+	#		a1:	start address of the image
+	#
+	#		t0: column iteration index
+	#		t1: column limit of iterations (width)
+	#		t2: line iteration index
+	#		t3: line limit of iterations (height/2)
+	#		t4: upper byte address
+	#		t5: lower byte address
+	#		t6: line break address for the lower byte
+	#		t7: uper byte 
+	#		t8: lower byte
+	#		t9: 
 
+	li $t0, 0				#t0: column iteration index
+	lw $t1, 4($a0)			#t1: column limit of iterations (width)
+	li $t2, 0				#t2: line iteration index
+	lw $t3, 8($a0)			
+	add $t4, $a1, $zero 	#t4: upper byte address
+	mul $t5, $t3, $t1		
+	mul $t5, $t5, 4		
+	add $t5, $t5, $t4	
+	add $t5, $t5, -4	
+	mul $t7, $t1, 4
+	sub $t5, $t5, $t7
+	add $t5, $t5, 4			#t5: lower byte address
+	mul $t6, $t1, 8			#t6: line break address for the lower byte
+	
+
+	div $t3, $t3, 2			#t3: line limit of iterations (height/2)
+
+
+	loop_flipX:
+		beq $t0, $t1, refreshFlipX
+		beq $t2, $t3, end_loop_flipX
+
+		lw $t7, 0($t4)
+		lw $t8, 0($t5)
+		sw $t8, 0($t4)
+		sw $t7, 0($t5)
+
+		add $t4, $t4, 4
+		add $t5, $t5, 4
+		add $t0, $t0, 1		
+		j loop_flipX
+	end_loop_flipX:
+	#end
+
+	jr $ra
+
+	refreshFlipX:
+		add $t0, $zero $zero
+		add $t2, $t2, 1
+		sub $t5, $t5, $t6 
+		j loop_flipX
+	#end refreshFlipX
+#end flipX
 
 rotateColors:
 	#	Register usage:
