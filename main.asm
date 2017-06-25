@@ -99,6 +99,7 @@ main:
 		beq $t0, 3, rotate90lCall
 		beq $t0, 4, rotate90rCall
 		beq $t0, 5, flipXCall
+		beq $t0, 6, flipYCall
 		#beq $t0, 6, greyScaleCall
 		#beq $t0, 7, contrastAdjustCall		
 		bgt $t0, 10, endProgram
@@ -146,6 +147,12 @@ main:
 		j menuOptsScr
 	#end rotateXCall
 
+	flipYCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal flipY
+		j menuOptsScr
+	#end rotateXCall
 
 	#//jal rotateColors
 	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
@@ -355,6 +362,62 @@ swapTerms:
 	sw $t0, 0($a1)
 	jr $ra
 #end swapTerms
+
+flipY:
+	#	Register usage:
+	#		a0: data info
+	#		a1:	start address of the image
+	#
+	#		t0: column iteration index
+	#		t1: column limit of iterations (width/2)
+	#		t2: line iteration index
+	#		t3: line limit of iterations (height)
+	#		t4: line start address
+	#		t5: line break
+	#		t6: left byte addres
+	#		t7: right byte addres
+	#		t8: left byte
+	#		t9:  right byte
+	li $t0, 0
+	lw $t1, 4($a0)
+	div $t1, $t1, 2
+	li $t2, 0
+	lw $t3, 8($a0)
+	add $t4, $a1, $zero
+	mul $t5, $t3, 4
+	add $t6, $t4, $zero
+	add $t7, $t4, $t5
+	add $t7, $t7, -4
+	loop_flixY:
+		beq $t2, $t3, end_loop_flipY
+		beq $t0, $t1, refreshFlipY		
+		lw $t8, 0($t6)
+		lw $t9, 0($t7)
+		sw $t9, 0($t6)
+		sw $t8, 0($t7)
+
+		add $t6, $t6, 4
+		add $t7, $t7, -4
+		add $t0, $t0, 1
+
+
+		j loop_flixY
+	end_loop_flipY:
+	#end
+
+	
+	jr $ra
+
+	refreshFlipY:
+		li $t0, 0
+		add $t2, $t2, 1
+		add $t4, $t4, $t5
+		add $t6, $t4, $zero
+		add $t7, $t6, $t5
+		add $t7, $t7, -4
+		j loop_flixY
+	#end refreshFlipY
+#end flipY
 
 flipX:
 	#	Register usage:
