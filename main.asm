@@ -4,10 +4,11 @@ strMenuHr: .asciiz "##################################################### \n"
 strMenuOpts: .asciiz "Select an option: \n"
 srtMenuOp1: .asciiz "1 - Load image into display \n"
 strMenuOp2: .asciiz "2 - Rotate colors \n"
-strMenuOp3: .asciiz "3 - Rotate image \n"
-strMenuOp4: .asciiz "4 - Invert colors \n"
-strMenuOp5: .asciiz "5 - Greyscale \n"
-strMenuOp6: .asciiz "6 - Contrast adjust \n"
+strMenuOp3: .asciiz "3 - Rotate image 90 degree left \n"
+strMenuOp4: .asciiz "4 - Rotate image 90 degree right \n"
+strMenuOp5: .asciiz "5 - Invert colors \n"
+strMenuOp6: .asciiz "6 - Greyscale \n"
+strMenuOp7: .asciiz "7 - Contrast adjust \n"
 
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
@@ -46,9 +47,16 @@ main:
 	#Will read the image data from the stack and clean the display image
 	#	Use $t0, $t1, $t2, $t3, $t4, $t5, $t8 and $t9.	
 
-	lw $a0, 4($s0)	
-	la $a1, 0x10008000
-	jal rotate90r
+	#//lw $a0, 4($s0)	
+	#//la $a1, 0x10008000
+	#//jal rotate90r
+	#Will rotate the displayed image 90 degree do the right
+
+	#//lw $a0, 4($s0)	
+	#//la $a1, 0x10008000
+	#//jal rotate90l
+	#Will rotate the displayed image 90 degree do the left
+
 
 
 
@@ -334,6 +342,70 @@ loadImage:
 
 dispOriginal:
 	la $t0, 0x10008000		#screen address
+	lw $t1, 4($a0)
+	lw $t2, 8($a0)
+	mul $t3, $t1, $t2
+	mul $t3, $t3, 4
+	add $t0, $t0, $t3 
+	mul $t4, $t1, 4
+	sub $t0, $t0, $t4
+	
+	#registerSave:
+		add $sp, $sp, -12
+		add $a0, $sp, $zero
+		sw $s0, 0($a0)
+		sw $s1, 4($a0)
+		sw $s2, 8($a0)
+		#s0 will be the iterative width index
+		#s1 will be the limit of iterations
+		#s2 will be the reverse line break
+	#end registerSave	
+	mul $t5, $t2, 4 
+	li $s0, 0
+	mul $s1, $t1, 4
+	add $s2, $t5, $t5
+
+
+	add $t1, $a1, $zero 	#iterative data address
+	li $t2, 1 			#index
+	add $t3, $zero, 0x10008000
+	loop_dispOriginal:
+		blt $t0, $t3, end_loop_dispOriginal
+		beq $s0, $s1, nextLineDispOriginal
+
+		lb $t4, 0($t1)
+
+		lb $t5, 1($t1)
+		sll $t5, $t5, 8
+		add $t4, $t4, $t5
+
+		lb $t5, 2($t1)
+		sll $t5, $t5, 16
+		add $t4, $t4, $t5
+
+		sw $t4, 0($t0)
+		add $t1, $t1, 3		
+		add $s0, $s0, 4
+		add $t0, $t0, 4		
+		j loop_dispOriginal		
+	end_loop_dispOriginal:
+	#end
+	#registerrecovery:		
+		lw $s0, 0($a0)
+		lw $s1, 4($a0)
+		lw $s2, 8($a0)
+		add $sp, $sp, 12
+	#end registerRecovery
+	jr $ra
+#end dispOriginal
+
+nextLineDispOriginal:
+	li $s0, 0	
+	sub $t0, $t0, $s2
+j loop_dispOriginal
+
+dispOriginal2:
+	la $t0, 0x10008000		#screen address
 
 	lw $t1, 4($a0)
 	lw $t2, 8($a0)
@@ -341,11 +413,12 @@ dispOriginal:
 	mul $t3, $t3, 4
 	add $t0, $t0, $t3 
 
+
 	add $t1, $a1, $zero 	#iterative data address
 	li $t2, 0 			#index
 	lw $t3, 0($a0)			#limit number of iterations
-	loop_dispOriginal:
-		beq $t2, $t3, end_loop_dispOriginal
+	loop_dispOriginal2:
+		beq $t2, $t3, end_loop_dispOriginal2
 
 		lb $t4, 0($t1)
 
@@ -361,11 +434,11 @@ dispOriginal:
 		add $t1, $t1, 3
 		add $t0, $t0, -4
 		add $t2, $t2, 3
-		j loop_dispOriginal		
-	end_loop_dispOriginal:
+		j loop_dispOriginal2		
+	end_loop_dispOriginal2:
 	#end
 	jr $ra
-#end dispOriginal
+#end dispOriginal2
 
 
 
