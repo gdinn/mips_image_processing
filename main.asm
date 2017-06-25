@@ -1,14 +1,16 @@
-.data
+.data 0x10000000
 
-strMenuHr: .asciiz "##################################################### \n"
+strMenuWait: .asciiz "\n\n\n\n Please wait ....... \n\n\n\n\n"
+strMenuHr: .asciiz " \n"
 strMenuOpts: .asciiz "Select an option: \n"
-srtMenuOp1: .asciiz "1 - Load image into display \n"
+srtMenuOp1: .asciiz "1 - Reset image \n"
 strMenuOp2: .asciiz "2 - Rotate colors \n"
 strMenuOp3: .asciiz "3 - Rotate image 90 degree left \n"
 strMenuOp4: .asciiz "4 - Rotate image 90 degree right \n"
 strMenuOp5: .asciiz "5 - Invert colors \n"
 strMenuOp6: .asciiz "6 - Greyscale \n"
 strMenuOp7: .asciiz "7 - Contrast adjust \n"
+strMenuOp8: .asciiz "Other - Exit \n"
 
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
@@ -32,9 +34,94 @@ main:
 	add $s0, $v0, $zero
 	add $s1, $v1, $zero
 
+	menuOptsScr:
+		li $v0, 4
+		la $a0, strMenuHr
+		syscall
 
-	add $a0, $s0, $zero
-	add $a1, $s1, $zero
+		li $v0, 4
+		la $a0, strMenuOpts
+		syscall
+
+		li $v0, 4
+		la $a0, srtMenuOp1
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp2
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp3
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp4
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp5
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp6
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp7
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp8
+		syscall		
+
+		li $v0, 5
+		syscall
+
+		add $t0, $v0, $zero
+
+		li $v0, 4
+		la $a0, strMenuWait
+		syscall		
+		
+		beq $t0, 1, resetImageCall
+		beq $t0, 2, rotateColorsCall
+		beq $t0, 3, rotate90lCall
+		beq $t0, 4, rotate90rCall
+		#beq $t0, 5, invertColorsCall
+		#beq $t0, 6, greyScaleCall
+		#beq $t0, 7, contrastAdjustCall		
+		bgt $t0, 7, endProgram
+	#end menuOptsScr
+
+
+	resetImageCall:
+		add $a0, $s0, $zero
+		add $a1, $s1, $zero	
+		jal dispOriginal
+		j menuOptsScr
+	#end resetImageCall
+
+	rotateColorsCall:
+		add $a0, $s0, $zero
+		add $a1, $s1, $zero		
+		jal rotateColors
+		j menuOptsScr
+	#end rotateColorsCall
+
+	rotate90lCall:
+		lw $a0, 4($s0)	
+		la $a1, 0x10008000
+		jal rotate90l
+		j menuOptsScr		
+	#end rotate90lCall
+	
+	rotate90rCall:
+		lw $a0, 4($s0)	
+		la $a1, 0x10008000
+		jal rotate90r
+		j menuOptsScr
+	#end rotate90rCall
 
 
 	#//jal rotateColors
@@ -56,9 +143,6 @@ main:
 	#//la $a1, 0x10008000
 	#//jal rotate90l
 	#Will rotate the displayed image 90 degree do the left
-
-
-
 
 	jal endProgram #Lembrar de devolver toda a memória
 #end main
