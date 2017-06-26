@@ -11,8 +11,11 @@ strMenuOp5: .asciiz "5 - Mirror image through x axis \n"
 strMenuOp6: .asciiz "6 - Mirror image through y axis \n"
 strMenuOp7: .asciiz "7 - Invert colors \n"
 strMenuOp8: .asciiz "8 - Greyscale \n"
-strMenuOp9: .asciiz "9 - Contrast adjust \n"
-strMenuOp10: .asciiz "Other - Exit \n"
+strMenuOp9: .asciiz "9 - Greenscale \n"
+strMenuOp10: .asciiz "10 - Histogram \n"
+strMenuOp11: .asciiz "11 - Pixel average filter\n"
+strMenuOp12: .asciiz "12 - Contrast adjust\n"
+strMenuOp13: .asciiz "Other - Exit \n"
 
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
@@ -85,6 +88,19 @@ main:
 		la $a0, strMenuOp10
 		syscall
 
+		li $v0, 4
+		la $a0, strMenuOp11
+		syscall		
+
+		li $v0, 4
+		la $a0, strMenuOp12
+		syscall
+
+		li $v0, 4
+		la $a0, strMenuOp13
+		syscall
+
+
 		li $v0, 5
 		syscall
 
@@ -100,9 +116,11 @@ main:
 		beq $t0, 4, rotate90rCall
 		beq $t0, 5, flipXCall
 		beq $t0, 6, flipYCall
-		#beq $t0, 6, greyScaleCall
-		#beq $t0, 7, contrastAdjustCall		
-		bgt $t0, 10, endProgram
+		beq $t0, 7, invertColorsCall
+		beq $t0, 8, greyScaleCall
+		beq $t0, 9, greenScaleCall
+	
+		bgt $t0, 13, endProgram
 	#end menuOptsScr
 
 
@@ -154,6 +172,27 @@ main:
 		j menuOptsScr
 	#end rotateXCall
 
+	invertColorsCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal invertColors
+		j menuOptsScr
+	#end invertColorsCall
+
+	greyScaleCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal greyScale
+		j menuOptsScr
+	#end invertColorsCall
+
+	greenScaleCall:	
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal greenScale
+		j menuOptsScr
+	#end invertColorsCall	
+
 	#//jal rotateColors
 	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
 	#	Use: $a0 and $a1 which are the image properties and data, respectively.
@@ -176,6 +215,166 @@ main:
 
 	jal endProgram #Lembrar de devolver toda a memória
 #end main
+
+greyScale:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: data address backup
+	#		t2: screen iterative address beggining by 0x10008000
+	#			t3(temporary): height of the image
+	#			t4(temporary): width of the image
+	#		t3: max number of iterations
+	#		t4: iterative index
+	#		t5: image byte
+	
+
+	add $t0, $a0, $zero
+	add $t1, $a1, $zero
+	
+
+	la $t2, 0x10008000		#t2: screen start address (iterative)
+
+	lw $t3, 4($t0)			
+	lw $t4, 8($t0)			
+	mul $t3, $t3, $t4
+
+	li $t4, 1				#t4: iterative index
+
+	
+	loop_greyScale:
+		beq $t3, $t4, end_loop_greyScale
+		lbu $t5, 0($t2)
+		mul $t5, $t5, 1140
+		div $t5, $t5, 10000
+		lbu $t6, 1($t2)	 
+		mul $t6, $t6, 5870
+		div $t6, $t6, 10000
+		#sll $t6, $t6, 8
+		add $t5, $t5, $t6
+		lbu $t7, 2($t2)	
+		mul $t7, $t7, 2989
+		div $t7, $t7, 10000		
+		#sll $t7, $t7, 16
+		add $t5, $t5, $t7
+
+		add $t6, $t5, $zero
+		sll $t6, $t6, 8
+		add $t7, $t5, $zero
+		sll $t7, $t7, 16
+
+		add $t5,$t5, $t6
+		add $t5,$t5, $t7
+
+		sw $t5, 0($t2)
+
+		add $t2, $t2, 4
+		add $t4, $t4, 1
+		j loop_greyScale
+	end_loop_greyScale:		
+	#end	
+
+	jr $ra
+
+#end greyScale
+
+greenScale:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: data address backup
+	#		t2: screen iterative address beggining by 0x10008000
+	#			t3(temporary): height of the image
+	#			t4(temporary): width of the image
+	#		t3: max number of iterations
+	#		t4: iterative index
+	#		t5: image byte
+	
+
+	add $t0, $a0, $zero
+	add $t1, $a1, $zero
+	
+
+	la $t2, 0x10008000		#t2: screen start address (iterative)
+
+	lw $t3, 4($t0)			
+	lw $t4, 8($t0)			
+	mul $t3, $t3, $t4
+
+	li $t4, 1				#t4: iterative index
+
+	
+	loop_greenScale:
+		beq $t3, $t4, end_loop_greenScale
+		lbu $t5, 0($t2)
+		mul $t5, $t5, 1140
+		div $t5, $t5, 10000
+		lbu $t6, 1($t2)	 
+		mul $t6, $t6, 5870
+		div $t6, $t6, 10000
+		sll $t6, $t6, 8
+		add $t5, $t5, $t6
+		lbu $t7, 2($t2)	
+		mul $t7, $t7, 2989
+		div $t7, $t7, 10000		
+		sll $t7, $t7, 16
+		addu $t5, $t5, $t7
+		sw $t5, 0($t2)
+		sb $zero, 4($t2)
+		add $t2, $t2, 4
+		add $t4, $t4, 1
+		j loop_greenScale
+	end_loop_greenScale:		
+	#end	
+
+	jr $ra
+
+#end greenScale
+
+
+invertColors:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: data address backup
+	#		t2: screen iterative address beggining by 0x10008000
+	#			t3(temporary): height of the image
+	#			t4(temporary): width of the image
+	#		t3: max number of iterations
+	#		t4: iterative index
+	#		t5: image byte
+	#		$t9: 255
+
+	add $t0, $a0, $zero
+	add $t1, $a1, $zero
+	li $t9, 255
+
+	la $t2, 0x10008000		#t2: screen start address (iterative)
+
+	lw $t3, 4($t0)			
+	lw $t4, 8($t0)			
+	mul $t3, $t3, $t4
+
+	li $t4, 1				#t4: iterative index
+
+	loop_invertColors:
+		beq $t3, $t4, end_loop_invertColors
+		lb $t5, 0($t2)
+		sub $t5, $t9, $t5
+		lb $t6, 1($t2)	
+		sub $t6, $t9, $t6
+		sll $t6, $t6, 8 
+		add $t5, $t5, $t6
+		lb $t7, 2($t2)	
+		sub $t7, $t9, $t7
+		sll $t7, $t7, 16
+		add $t5, $t5, $t7
+		sw $t5, 0($t2)
+		add $t2, $t2, 4
+		add $t4, $t4, 1
+		j loop_invertColors
+	end_loop_invertColors:		
+	#end	
+
+	jr $ra
+#end invertColors
 
 rotate90r:
 	#	Register usage:
@@ -508,11 +707,11 @@ rotateColors:
 
 	loop_rotateColors:
 		beq $t3, $t4, end_loop_rotateColors
-		lb $t5, 3($t2)			#ou lb $t5, 2($t2)
-		lb $t6, 1($t2)			#ou lb $t6, 0($t2)
+		lb $t5, 2($t2)			#ou lb $t5, 2($t2)
+		lb $t6, 0($t2)			#ou lb $t6, 0($t2)
 		sll $t6, $t6, 8 
 		add $t5, $t5, $t6
-		lb $t7, 2($t2)			#ou lb $t7, 1($t2)
+		lb $t7, 1($t2)			#ou lb $t7, 1($t2)
 		sll $t7, $t7, 16
 		add $t5, $t5, $t7
 		sw $t5, 0($t2)
