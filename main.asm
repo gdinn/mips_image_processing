@@ -119,7 +119,10 @@ main:
 		beq $t0, 7, invertColorsCall
 		beq $t0, 8, greyScaleCall
 		beq $t0, 9, greenScaleCall
-	
+		beq $t0, 10, histogramCall
+		beq $t0, 11, pixelAverageCall
+
+
 		bgt $t0, 13, endProgram
 	#end menuOptsScr
 
@@ -191,7 +194,21 @@ main:
 		la $a1, 0x10008000
 		jal greenScale
 		j menuOptsScr
-	#end invertColorsCall	
+	#end invertColorsCall
+
+	histogramCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal histogram
+		j menuOptsScr
+	#end histogramCall	
+
+	pixelAverageCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal pixelAverage
+		j menuOptsScr		
+	#end pixelAverageCall
 
 	#//jal rotateColors
 	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
@@ -215,6 +232,157 @@ main:
 
 	jal endProgram #Lembrar de devolver toda a memória
 #end main
+
+histogram:
+	#	Proposta:
+	#		Proponho realizar a lida e catalogação dos pixels simultaneamente da seguinte forma:
+	#			- Lê o pixel e checa se ele existe navegando pelas words no endereço base do frame usado
+	#					Não existe? ->  Desloca a pilha em 2 words e coloca na primeira word a word do $gp q corresponde ao pixel
+	#									Na segunda word coloca o número 1
+	#					Existe? -> Incrementa um na segunda word
+
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: data address backup
+	#		t2: screen iterative address beggining by 0x10008000
+	#			t3(temporary): height of the image
+	#			t4(temporary): width of the image
+	#		t3: max number of iterations
+	#		t4: iterative index
+	#		t5: image byte
+
+	add $t0, $a0, $zero
+	add $t1, $a1, $zero
+	jr $ra
+
+#end histogram
+
+pixelAverage:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: pixel iterative address
+	##N.U		t2: pixel temporary address (for the near pixels) 
+	#		t3: linebreak for iterations
+	#		t4: image processable width (since that the borders doesnt count)
+	#		t5: image processable height
+	#		t6: width index
+	#		t7: height index
+	#		t8: new pixel
+	#		t9: temporary pixel 
+	add $t0, $a0, $zero 		#t0: data info address backup
+	add $t1, $a1, $zero 		#t1: pixel iterative address
+
+	lw $t4, 4($t0)				
+	sub $t4, $t4, 1 			#t4: image processable width 
+	lw $t5, 8($t0)				
+	sub $t5, $t5, 1				#t5: image processable height
+
+	mul $t3, $t4, 4				#t3: linebreak for iterations
+	add $t1, $t1, $t3			
+	add $t1, $t1, 4 			#t1: pixel iterative address
+	add $t2, $t1, $zero 		#t2: pixel temporary address (for the near pixels)
+	li $t6, 1
+	li $t7, 1
+
+	add $t8, $ra, $zero
+	add $a1, $t3, $zero 		#preparing argument 2 for the seek3x3Average function
+
+	loop_pixelAverage:
+		beq $t6,$t4, refreshPixelAverage
+		beq $t7,$t5, end_loop_pixelAverage
+
+		
+		sub $a0, $t1, $t3
+		jal seek3x3Average
+
+		sw $v0, 0($t1)
+
+		add $t1, $t1, 4
+		add $t6, $t6, 1
+		j loop_pixelAverage
+	end_loop_pixelAverage:
+	#end
+
+	add $ra, $t8, $zero
+	jr $ra
+
+	refreshPixelAverage:		
+		li $t6, 1
+		add $t1, $t1, 8
+		add $t7, $t7, 1
+		j loop_pixelAverage
+
+	seek3x3Average:
+		add $sp, $sp, -32
+		add $t9, $sp, $zero
+		sw $s0, 0($t9)		#some byte
+		sw $s1, 4($t9)		#some byte
+		sw $s2, 8($t9)		#some byte
+		sw $s3, 12($t9)		#some byte
+		sw $s4, 16($t9)		#initial address
+		sw $s5, 20($t9)		#width index
+		sw $s6, 24($t9)		#height index
+		sw $s7, 28($t9)			#Final pixel
+		li $s5, 0
+		li $s6, 0
+		add $a0, $a0, -4
+		add $s4, $a0, $zero
+		li $s7, 0
+
+		loop_seek3x3Average:
+			beq $s5, 3, refreshSeek3x3Average
+			beq $s6, 3, end_loop_seek3x3Average
+			bne $s5, 2, notCenter_seek3x3Average
+			bne $s6, 2, notCenter_seek3x3Average
+			j iterate_seek3x3Average
+
+			notCenter_seek3x3Average:
+				lbu $s0, 0($a0)
+				div $s0, $s0, 8
+				lbu $s1, 1($a0)
+				div $s1, $s1, 8
+				lbu $s2, 2($a0)
+				div $s2, $s2, 8
+
+				sll $s1, $s1, 8
+				sll $s2, $s2, 16
+				add $s7, $s7, $s0
+				add $s7, $s7, $s1
+				add $s7, $s7, $s2
+			#end notCenter_seek3x3Average
+
+			iterate_seek3x3Average:
+				add $a0, $a0, 4
+				add $s5, $s5, 1
+			#end iterate_seek3x3Average
+			
+			j loop_seek3x3Average
+
+			end_loop_seek3x3Average:
+			#end
+
+			add $v0, $s7, $zero
+			lw $s0, 0($t9)		#some byte
+			lw $s1, 4($t9)		#some byte
+			lw $s2, 8($t9)		#some byte
+			lw $s3, 12($t9)		#some byte
+			lw $s4, 16($t9)		#initial address
+			lw $s5, 20($t9)		#width index
+			lw $s6, 24($t9)		#height index
+			lw $s7, 28($t9)			#Final pixel
+			add $sp, $sp, 32
+
+			jr $ra
+	#end seek3x4Average
+
+	refreshSeek3x3Average:
+		li $s5, 0
+		add $s6, $s6, 1
+		add $a0, $s4, $a1
+		j loop_seek3x3Average
+	#end refreshSeek3x3Average
+#end pixelAverage
+
 
 greyScale:
 	#	Register usage:
