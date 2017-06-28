@@ -243,7 +243,12 @@ histogram:
 	#					Não existe? ->  Desloca a pilha em 2 words e coloca na primeira word a word do $gp q corresponde ao pixel
 	#									Na segunda word coloca o número 1
 	#					Existe? -> Incrementa um na segunda word
-	#					Fazer o fim da lista de pixels ser 0xFFFFFF para fins de identificação
+	#					
+
+	#	Proposta 2:
+	#		Como sabemos que existem no máximo 255 cores, façamos o seguinte:
+	#			Alocar 255 word e ir gravando na posição de memória x*4+$gp as ocorrencias da cor x
+	#	O número de operações irá reduzir para 255*(numero de operações da adição de ocorrencia)
 
 	#Histogram stack frame structure:
 	#	0($t5) : Number of terms
@@ -276,17 +281,17 @@ histogram:
 
 	add $sp, $sp, -4
 	add $t5, $sp, $zero 				#t5: stack fram address of the histogram
-	sw $zero, 0($t5)
+	sw $t2, 0($t5)
 
 	loop_histogram:
 		beq $t2, $t3, end_loop_histogram
-		lw $t4, 0($t1)					#t4: image pixel
+		lb $t4, 0($t1)					#t4: image pixel
 		li $t6, 0						#t6: seekPixel index
 		lw $t7, 0($t5)					#t7: number of pixels at the frame
 		add $t8, $t5, $zero
 		seekPixel_histogram:
 			beq $t6, $t7, histogram_pixelNotFound
-			lw   $t9, 4($t8)			#Since that the first term of the stack is the number of terms..
+			lb   $t9, 4($t8)			#Since that the first term of the stack is the number of terms..
 			beq $t9, $t4, histogram_pixelFound
 			add $t8, $t8, 8
 			add $t6, $t6, 1
@@ -306,21 +311,21 @@ histogram:
 	jr $ra
 
 	histogram_pixelNotFound:
-		lw $t7, 0($t5)
-		add $t7, $t7, 2
+		lw $t7, 0($t5)    #t5 stack frame address
+		add $t7, $t7, 1	
 		sw $t7, 0($t5)
 		add $sp, $sp, -8
 		add $t0, $sp, $zero
-		sw $t4, 0($t0)
+		sw $t4, 0($t8)
 		li $t4, 1
-		sw $t4, 4($t0)
+		sw $t4, 4($t8)
 		j end_seekPixel_histogram
 	#end histogram_pixelNotFound
 
 	histogram_pixelFound:
-		lw $t0, 8($t8)
+		lw $t0, 0($t8)
 		add $t0, $t0, 1
-		sw $t0, 8($t8)
+		sw $t0, 4($t8)
 		j end_seekPixel_histogram
 	#end histogram_pixelFound
 
@@ -344,20 +349,18 @@ histogram:
 		loop_printHistogram:
 			beq $t2, $t1, end_loop_printHistogram
 
-			lw $t3, 0($t0)
+			lw $t3, 0($t0)			#Print pixel value
 			add $t0, $t0, 4
-
 			li $v0, 1
 			add $a0, $t3, $zero
 			syscall
 
-			li $v0, 4
+			li $v0, 4				#Print hyphen
 			la $a0, strPrintHistogramHyphen
 			syscall
 
-			lw $t3, 0($t0)
-			add $t0, $t0, 4			
-
+			lw $t3, 0($t0)			#Print number of ocurrences
+			add $t0, $t0, 4		
 			li $v0, 1
 			add $a0, $t3, $zero
 			syscall			
