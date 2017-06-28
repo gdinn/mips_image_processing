@@ -280,7 +280,7 @@ histogram:
 
 	loop_histogram:
 		beq $t2, $t3, end_loop_histogram
-		lw $t4, 0($t0)					#t4: image pixel
+		lw $t4, 0($t1)					#t4: image pixel
 		li $t6, 0						#t6: seekPixel index
 		lw $t7, 0($t5)					#t7: number of pixels at the frame
 		add $t8, $t5, $zero
@@ -294,7 +294,7 @@ histogram:
 		end_seekPixel_histogram:
 		#end
 		add $t2, $t2, 1
-		add $t0, $t0, 4
+		add $t1, $t1, 4
 		j loop_histogram
 	end_loop_histogram:
 	#end
