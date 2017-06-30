@@ -2,6 +2,7 @@
 
 strMenuWait: .asciiz "\n\n\n\n Please wait ....... \n\n\n\n\n"
 strMenuHr: .asciiz " \n"
+strHistogramHr: .asciiz " \n\t"
 strMenuOpts: .asciiz "Select an option: \n"
 srtMenuOp1: .asciiz "1 - Reset image \n"
 strMenuOp2: .asciiz "2 - Rotate colors \n"
@@ -12,13 +13,13 @@ strMenuOp6: .asciiz "6 - Mirror image through y axis \n"
 strMenuOp7: .asciiz "7 - Invert colors \n"
 strMenuOp8: .asciiz "8 - Greyscale \n"
 strMenuOp9: .asciiz "9 - Greenscale \n"
-strMenuOp10: .asciiz "10 - Histogram \n"
+strMenuOp10: .asciiz "10 - First byte Histogram (for greyscale images)\n"
 strMenuOp11: .asciiz "11 - Pixel average filter\n"
 strMenuOp12: .asciiz "12 - Contrast adjust\n"
 strMenuOp13: .asciiz "Other - Exit \n"
 
-strPrintHistogramHyphen: .asciiz " - "
-strPrintHistogramHeader: .asciiz "Image Histogram: \n\n |Pixe intensity | Ocurrences | \n"
+strPrintHistogramHyphen: .asciiz "\t - \t"
+strPrintHistogramHeader: .asciiz "Image Histogram: \n\n   |  Intensity  |  Ocurrences  | \n\t"
 
 strErrOpenFile: .asciiz "Error opening the file. Are you sure that the name is correct?\n"
 strErrReadFile: .asciiz "Error reading the file. Are you sure that it is a bmp compatible file? \n"
@@ -237,142 +238,96 @@ main:
 #end main
 
 histogram:
-	#	Proposta:
-	#		Proponho realizar a lida e catalogação dos pixels simultaneamente da seguinte forma:
-	#			- Lê o pixel e checa se ele existe navegando pelas words no endereço base do frame usado
-	#					Não existe? ->  Desloca a pilha em 2 words e coloca na primeira word a word do $gp q corresponde ao pixel
-	#									Na segunda word coloca o número 1
-	#					Existe? -> Incrementa um na segunda word
-	#					
-
-	#	Proposta 2:
-	#		Como sabemos que existem no máximo 255 cores, façamos o seguinte:
-	#			Alocar 255 word e ir gravando na posição de memória x*4+$gp as ocorrencias da cor x
-	#	O número de operações irá reduzir para 255*(numero de operações da adição de ocorrencia)
-
-	#Histogram stack frame structure:
-	#	0($t5) : Number of terms
-	#	4($t5) : Pixel
-	#	8($t5) : Number of ocurrences
-	#	12($t5): Pixel:
-	#	....
+	#This histogram will have validity to a 256 color image, such a greyscale one.
+	#The ideia is to alocate 256 words into stack and each word will have a memory relative position to the first term. This relative 
+	#		position will be the color and the word content will be the number of ocurrences. By doing this we save a lot of operations.
 
 	#	Register usage:
-	#		t0: data info address backup
-	#		t1: screen iterative address beggining by 0x10008000
-	#		t2: iteration index
-	#			t3(temporary): width of the image
-	#			t4(temporary): height of the image
-	#		t3: max number of iterations
-	#		t4: image pixel
-	#		t5: stack fram address of the histogram
-	#		t6: seekPixel index
-	#		t7: number of pixels at the frame
-	#		t8: iterative stack frame address
-	#		t9: pixel of the stack
-
-	add $t0, $a0, $zero 				#t0: data info address backup
-	add $t1, $a1, $zero 				#t1: screen iterative address beggining by 0x10008000
-	li $t2, 0							#t2: iteration index
-	lw $t3, 4($t0)
-	lw $t4, 8($t0)
-	mul $t3, $t3, $t4					
-	mul $t3, $t3, 4						#t3: max number of iterations
-
-	add $sp, $sp, -4
-	add $t5, $sp, $zero 				#t5: stack fram address of the histogram
-	sw $t2, 0($t5)
+	#		$t0: data info address backup
+	#		$t1: pixel iterative address
+	#		$t2: stack frame base address
+	#		$t3: iteration index
+	#		$t4: max number of iterations
+	#		$t5: analysed pixel
+	#		$t6: retrieved quantity stored
+	#		$t7: memory address to store new quantity
+	add $t0, $a0, $zero 		#$t0: data info address backup
+	add $t1, $a1, $zero 		#$t1: pixel iterative address
+	add $sp, $sp, -1028
+	add $t2, $sp, $zero 		#$t2: stack frame base address
+	li $t3, 0					#$t3: iteration index
+	lw $t4, 4($t0)
+	lw $t5, 8($t0)
+	mul $t4, $t4, $t5			#$t4: max number of iterations
 
 	loop_histogram:
-		beq $t2, $t3, end_loop_histogram
-		lb $t4, 0($t1)					#t4: image pixel
-		li $t6, 0						#t6: seekPixel index
-		lw $t7, 0($t5)					#t7: number of pixels at the frame
-		add $t8, $t5, $zero
-		seekPixel_histogram:
-			beq $t6, $t7, histogram_pixelNotFound
-			lb   $t9, 4($t8)			#Since that the first term of the stack is the number of terms..
-			beq $t9, $t4, histogram_pixelFound
-			add $t8, $t8, 8
-			add $t6, $t6, 1
-			j seekPixel_histogram
-		end_seekPixel_histogram:
-		#end
-		add $t2, $t2, 1
+		beq $t3, $t4, end_looop_histogram
+		lb $t5, 0($t1)			#$t5: analysed pixel
+		mul $t5, $t5, 4
+		add $t7, $t2, $t5		#$t7: memory address to store new quantity
+		lw $t6, 0($t7)			#$t6: retrieved stored quantity 
+		add $t6, $t6, 1
+		sw $t6, 0($t7)
 		add $t1, $t1, 4
+		add $t3, $t3, 1
 		j loop_histogram
-	end_loop_histogram:
-	#end
+	end_looop_histogram:
 
-	add $a0, $t5, $zero
+	add $a0, $t2, $zero
 	add $t9, $ra, $zero
 	jal printHistogram
+
 	add $ra, $t9, $zero
+	add $sp, $sp, 1028
+
 	jr $ra
-
-	histogram_pixelNotFound:
-		lw $t7, 0($t5)    #t5 stack frame address
-		add $t7, $t7, 1	
-		sw $t7, 0($t5)
-		add $sp, $sp, -8
-		add $t0, $sp, $zero
-		sw $t4, 0($t8)
-		li $t4, 1
-		sw $t4, 4($t8)
-		j end_seekPixel_histogram
-	#end histogram_pixelNotFound
-
-	histogram_pixelFound:
-		lw $t0, 0($t8)
-		add $t0, $t0, 1
-		sw $t0, 4($t8)
-		j end_seekPixel_histogram
-	#end histogram_pixelFound
 
 	printHistogram:
 		#	Register usage:
-		#		t0: backup for the stack frame address of the histogram
-		#		t1: number of different pixels stored at the stack
-		#		t2: index 
-		#		t3: auxiliary word
+		#		$t0: stack frame of quantities base address backup
+		#		$t1: referenced color
+		##nu		$t2: iterative index
+		#		$t3: max number of iterations
+		#		$t4: loaded quantity	
 
-		add $t0, $a0, $zero
-		lw $t1, 0($t0)
-		li $t2, 0
-
-		add $t0, $t0, 4
+		add $t0, $a0, $zero 		#$t0: stack frame of quantities base address backup
+		li $t1, 0					#$t1: referenced color
+		li $t2, 0					#$t2: iterative index
+		li $t3, 256					#$t3: max number of iterations
 
 		li $v0, 4
 		la $a0, strPrintHistogramHeader
 		syscall
 
 		loop_printHistogram:
-			beq $t2, $t1, end_loop_printHistogram
+			beq $t1, $t3, end_loop_printHistogram
+			lw $t4, 0($t0)			#$t4: loaded quantity
 
-			lw $t3, 0($t0)			#Print pixel value
-			add $t0, $t0, 4
 			li $v0, 1
-			add $a0, $t3, $zero
+			add $a0, $t1, $zero
 			syscall
 
-			li $v0, 4				#Print hyphen
+			li $v0, 4
 			la $a0, strPrintHistogramHyphen
 			syscall
 
-			lw $t3, 0($t0)			#Print number of ocurrences
-			add $t0, $t0, 4		
 			li $v0, 1
-			add $a0, $t3, $zero
-			syscall			
-			
-			add $t2, $t2, 1
+			add $a0, $t4, $zero
+			syscall
+
+			li $v0, 4
+			la $a0, strHistogramHr
+			syscall
+
+			add $t1, $t1, 1			
+			add $t0, $t0, 4
 			j loop_printHistogram
 		end_loop_printHistogram:
 		#end
 
 		jr $ra
-	#end printHistogram
 
+	#end printHistogram
 #end histogram
 
 pixelAverage:
