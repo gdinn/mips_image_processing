@@ -17,5 +17,5 @@ The implemented filters are:
 <li>Contrast adjust for grayscale images (better performance) and for colored ones</li>
 </ul>
 
-Author: Igor Godinho Debastiani
-It was made as a college work to the grade Microprocessors at Instituto Federal de Santa Catarina (IFSC). Florianópolis, Brazil.
+<p>Author: Igor Godinho Debastiani</p>
+<p>It was made as a college work to the grade Microprocessors at Instituto Federal de Santa Catarina (IFSC). Florianópolis, Brazil.</p>
