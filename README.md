@@ -1,4 +1,7 @@
 # mips_image_processing
+
+<b>Language used to comment in the whole code is english</b>.
+
 This program will read a bmp image and process according the user choice. MIPS assembly language and Mars 4.5 was used to achieve this task. To get the thing working, just put mars into the same folder as the main.asm file and img.bmp as well. It should work fine.
 
 The implemented filters are:
