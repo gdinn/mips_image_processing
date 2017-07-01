@@ -38,8 +38,6 @@ main:
 	#	$gp. The idea behind it is making two copies is that one of these will be the displayed 
 	#	image with (or without) filters applied. If the user chooses he can reset the image to 
 	#	the the original state wich means a copy of the data at $sp to $gp.
-	#	Use: $a0~$a2, $t0~$t9, $v0 and $v1. $v0 and $v1 will be the returns with the address to the
-	#		data info and the data.
 
 	add $s0, $v0, $zero
 	add $s1, $v1, $zero
@@ -141,16 +139,21 @@ main:
 		add $a1, $s1, $zero	
 		jal dispOriginal
 		j menuOptsScr
-	#end resetImageCall
+	#end resetImageCall	
 
 	rotateColorsCall:
+		#Will read the image from $a0, which is $gp int this case, and will apply the rotateColors filter.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.	
 		add $a0, $s0, $zero
-		add $a1, $s1, $zero		
+		la $a1, 0x10008000	
 		jal rotateColors
 		j menuOptsScr
 	#end rotateColorsCall
 
 	rotate90lCall:
+		#Will read the image from $a0, which is $gp int this case, and will rotate the image 90 degrees to the left.
+		#The thing here is transpose the image matrix first and then flip it through the x axis.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.
 		lw $a0, 4($s0)	
 		la $a1, 0x10008000
 		jal rotate90l
@@ -161,6 +164,9 @@ main:
 	#end rotate90lCall
 	
 	rotate90rCall:
+		#Will read the image from $a0, which is $gp int this case, and will rotate the image 90 degrees to the right.
+		#The thing here is the same as rotate90l.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.	
 		lw $a0, 4($s0)	
 		la $a1, 0x10008000
 		jal rotate90r
@@ -171,6 +177,8 @@ main:
 	#end rotate90rCall
 
 	flipXCall:
+		#Will read the image from $a0, which is $gp int this case, and will flip the image through the x axis
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.		
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal flipX
@@ -178,6 +186,8 @@ main:
 	#end rotateXCall
 
 	flipYCall:
+		#Will read the image from $a0, which is $gp int this case, and will flip the image through the y axis
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.		
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal flipY
@@ -185,6 +195,10 @@ main:
 	#end rotateXCall
 
 	invertColorsCall:
+		#Will read the image from $a0, which is $gp int this case, and will apply the invert colors filter.
+		#The equation being used is:
+		# 		R = (255-R); G = (255-G); B = (255-B);
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.			
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal invertColors
@@ -192,6 +206,10 @@ main:
 	#end invertColorsCall
 
 	greyScaleCall:
+		#Will read the image from $a0, which is $gp int this case, and will apply the invert colors filter.
+		#The equation being used is:
+		#		I = 0,2989*R + 0,5870*G + 0,1140*B		
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.		
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal greyScale
@@ -199,6 +217,12 @@ main:
 	#end invertColorsCall
 
 	greenScaleCall:	
+		#Will read the image from $a0, which is $gp int this case, and will apply the invert colors filter.
+		#Some nice effected obtained by the mistaken application of the greyscale filter.
+		#The equation being used is:
+		#		I = 0,2989*R + 0,5870*G + 0,1140*B	
+		#With the wrong use of the mips instruction set, of course.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.		
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal greenScale
@@ -206,6 +230,12 @@ main:
 	#end invertColorsCall
 
 	histogramCall:
+		#Will read the image from $a0, which is $gp int this case, and will analyse the image and display in Run I/O container
+		#		the obtained results.
+		#The ideia behind an histogram is to collect the number of ocurrences for each color in a image.
+		#Since the colored imaged has a large number of colors, the application will collect only the first byte to analyse, meaning
+		#		that the image has to be 256 color max. Wich a grayscale certainly is.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.		
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal histogram
@@ -213,6 +243,9 @@ main:
 	#end histogramCall	
 
 	pixelAverageCall:
+		#Will read the image from $a0, which is $gp int this case, and will apply the pixel average filter.
+		#The procedure is collect the byte and substitute it with the average of the 8 neighbor pixels.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.			
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal pixelAverage
@@ -220,6 +253,12 @@ main:
 	#end pixelAverageCall
 
 	contrastAdjustCall:
+		#Will read the image from $a0, which is $gp int this case, and will apply the pixel average filter.
+		#The equation being used is:
+		#		Inew(x,y) = [I(x,y) - Ilow] * [255 / (Ihigh - Ilow)]	
+		#The problem is that for each pixel we need to make a difference subtituition, so, apply this filter to
+		#		a grayscale simplify the whole thing. This function works right with a grayscale image.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.	
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal contrastAdjust
@@ -227,6 +266,11 @@ main:
 	#end contrastAdjustCall
 
 	contrastAdjustColoredCall:
+		#Well, the fact is that i ended this with a large time before the deadline, so lets do it for a colored image to.
+		#To save some time and neurons, i used the contrastAdjust functon to adjust only one byte per iteration and 
+		#		rotated the colors to make that same byte have the next color to iterate.
+		#Same equation as before but with the color rotation thing.
+		#	Use: $a0 and $a1 which are the image properties and data, respectively.	
 		add $a0, $s0, $zero
 		la $a1, 0x10008000
 		jal contrastAdjustColored
@@ -245,32 +289,14 @@ main:
 		add $a0, $s0, $zero
 		add $a1, $s1, $zero		
 		jal rotateColors	
-
 		j menuOptsScr		
 	#end contrastAdjustColoredCall
 
-
-	#//jal rotateColors
-	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
-	#	Use: $a0 and $a1 which are the image properties and data, respectively.
-
-	#//add $a0, $s0, $zero
-	#//add $a1, $s1, $zero
-	#//jal dispOriginal
-	#Will read the image data from the stack and clean the display image
-	#	Use $t0, $t1, $t2, $t3, $t4, $t5, $t8 and $t9.	
-
-	#//lw $a0, 4($s0)	
-	#//la $a1, 0x10008000
-	#//jal rotate90r
-	#Will rotate the displayed image 90 degree do the right
-
-	#//lw $a0, 4($s0)	
-	#//la $a1, 0x10008000
-	#//jal rotate90l
-	#Will rotate the displayed image 90 degree do the left
-
-	jal endProgram #Lembrar de devolver toda a memória
+	add $a0, $s0, $zero
+	add $a1, $s1, $zero	
+	jal endProgram 
+	#Will terminate the program and will dislocate the $sp to the beggining place.
+	#The thing passing arguments to this function is that the function needs to know the shift amount in the $sp.
 #end main
 
 contrastAdjustColored:
@@ -288,8 +314,8 @@ contrastAdjustColored:
 
 	add $sp, $sp, -32
 	add $t9, $sp, $zero
-	sw $s0, 0($t9)						#3
-	sw $s1, 4($t9)						#index for sll loop
+	sw $s0, 0($t9)						
+	sw $s1, 4($t9)						
 	sw $s2, 8($t9)						
 	sw $s3, 12($t9)						
 	sw $s4, 16($t9)						
@@ -300,13 +326,11 @@ contrastAdjustColored:
 
 	add $t0, $a0, $zero 				#t0: data info address backup
 	add $t1, $a1, $zero 				#t1: Image address beggining address backup
-	li $t3, 0							#t3: RGB index (0 ~ 2)
+	li $t3, 0							
 	lw $t5, 4($t0)
 	lw $t6, 8($t0)
 	mul $t5, $t5, $t6					#t5: Image max number of iterations	
 	add $t2 $t1, $zero 					#t2: Image iterative address
-	#Quando for iterar de novo adicionar 1 em t2 (para pegar o segundo baite)
-	li $s0, 3
 
 	seekBorderValuesColored:		
 		li $t4, 0							#t4: Image index
@@ -369,8 +393,6 @@ contrastAdjustColored:
 #end contrastAdjustColored
 
 
-#end contrastAdjustColored
-
 contrastAdjust:
 	#	Register usage:
 	#		t0: data info address backup
@@ -398,13 +420,11 @@ contrastAdjust:
 
 	add $t0, $a0, $zero 				#t0: data info address backup
 	add $t1, $a1, $zero 				#t1: Image address beggining address backup
-	li $t3, 0							#t3: RGB index (0 ~ 2)
+	li $t3, 0							
 	lw $t5, 4($t0)
 	lw $t6, 8($t0)
 	mul $t5, $t5, $t6					#t5: Image max number of iterations	
-	add $t2 $t1, $zero 					#t2: Image iterative address
-	#Quando for iterar de novo adicionar 1 em t2 (para pegar o segundo baite)
-	li $s0, 3
+	add $t2 $t1, $zero 					#t2: Image iterative address	
 
 	seekBorderValues:		
 		li $t4, 0							#t4: Image index
@@ -458,10 +478,7 @@ contrastAdjust:
 			j loop_coolor_contrastAdjust
 		fim_loop_coolor_contrastAdjust:
 		#fim
-	#end color_contrastAdjust
-
-		
-	
+	#end color_contrastAdjust	
 			
 	lw $s0, 0($t9)						
 	lw $s1, 4($t9)						
@@ -525,7 +542,7 @@ histogram:
 		#	Register usage:
 		#		$t0: stack frame of quantities base address backup
 		#		$t1: referenced color
-		##nu		$t2: iterative index
+		#		$t2: iterative index
 		#		$t3: max number of iterations
 		#		$t4: loaded quantity	
 
@@ -573,7 +590,7 @@ pixelAverage:
 	#	Register usage:
 	#		t0: data info address backup
 	#		t1: pixel iterative address
-	##N.U		t2: pixel temporary address (for the near pixels) 
+	#		t2: pixel temporary address (for the near pixels) 
 	#		t3: linebreak for iterations
 	#		t4: image processable width (since that the borders doesnt count)
 	#		t5: image processable height
@@ -1169,29 +1186,22 @@ rotateColors:
 	#		t4: iterative index
 	#		t5: image byte
 
-
 	add $t0, $a0, $zero
-	add $t1, $a1, $zero
-
-	la $t2, 0x10008000		#t2: screen start address (iterative)
+	add $t2, $a1, $zero 		#t2: screen start address (iterative)	
 
 	lw $t3, 4($t0)			
 	lw $t4, 8($t0)			
 	mul $t3, $t3, $t4
 
-	#lw $t3, 0($t0)
-
-	#mul $t3, $t3, 4			#t3: max number of iterations
-
 	li $t4, 1				#t4: iterative index
 
 	loop_rotateColors:
 		beq $t3, $t4, end_loop_rotateColors
-		lb $t5, 2($t2)			#ou lb $t5, 2($t2)
-		lb $t6, 0($t2)			#ou lb $t6, 0($t2)
+		lb $t5, 2($t2)			
+		lb $t6, 0($t2)			
 		sll $t6, $t6, 8 
 		add $t5, $t5, $t6
-		lb $t7, 1($t2)			#ou lb $t7, 1($t2)
+		lb $t7, 1($t2)			
 		sll $t7, $t7, 16
 		add $t5, $t5, $t7
 		sw $t5, 0($t2)
@@ -1200,7 +1210,6 @@ rotateColors:
 		j loop_rotateColors
 	end_loop_rotateColors:		
 	#end
-
 	jr $ra	
 #end rotateColors
 	
@@ -1486,18 +1495,18 @@ analyseHeader:
 
 openFile:
 	#sycall for open the file
-	li $v0, 13			# parametro p chamada de abertura
+	li $v0, 13			
 	li $a1, 0			# flags (0=read, 1=write)
-	li $a2, 0			# mode = desnecessário
-	syscall				# devolve o descritor (ponteiro) do arquivo em $v0
+	li $a2, 0			# mode = unnecessary
+	syscall				# returns the descriptor (pointer) of the file in $v0
 	blt $v0, $zero, errOpenFile
 	jr $ra
 #end openFile
 
 readHeader:
 	move $a0, $v0
-	li $v0, 14			# parametro de chamada de leitura de arquivo	
-	syscall				# devolve o número de caracteres lidos
+	li $v0, 14			
+	syscall				# return the number of read characters
 	blt $v0, $zero, errReadFile
 	jr $ra
 #end readHeader
@@ -1524,6 +1533,11 @@ printStr:
 #end printStr
 
 endProgram:
+	lw $t0, 4($a0)
+	lw $t1, 8($a0)
+	mul $t0, $t0, $t1
+	mul $t0, $t0, 4
+	add $sp, $sp, $t0
 	li $v0, 10
 	syscall
 
