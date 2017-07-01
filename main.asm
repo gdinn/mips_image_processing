@@ -15,8 +15,9 @@ strMenuOp8: .asciiz "8 - Greyscale \n"
 strMenuOp9: .asciiz "9 - Greenscale \n"
 strMenuOp10: .asciiz "10 - First byte Histogram (for greyscale images)\n"
 strMenuOp11: .asciiz "11 - Pixel average filter\n"
-strMenuOp12: .asciiz "12 - Contrast adjust\n"
-strMenuOp13: .asciiz "Other - Exit \n"
+strMenuOp12: .asciiz "12 - Contrast adjust (for greyscale images)\n"
+strMenuOp13: .asciiz "13 - Contrast adjust (for colored images)\n"
+strMenuOp14: .asciiz "Other - Exit \n"
 
 strPrintHistogramHyphen: .asciiz "\t - \t"
 strPrintHistogramHeader: .asciiz "Image Histogram: \n\n   |  Intensity  |  Ocurrences  | \n\t"
@@ -104,6 +105,10 @@ main:
 		la $a0, strMenuOp13
 		syscall
 
+		li $v0, 4
+		la $a0, strMenuOp14
+		syscall		
+
 
 		li $v0, 5
 		syscall
@@ -125,9 +130,9 @@ main:
 		beq $t0, 9, greenScaleCall
 		beq $t0, 10, histogramCall
 		beq $t0, 11, pixelAverageCall
-
-
-		bgt $t0, 13, endProgram
+		beq $t0, 12, contrastAdjustCall
+		beq $t0, 13, contrastAdjustColoredCall
+		bgt $t0, 14, endProgram
 	#end menuOptsScr
 
 
@@ -214,6 +219,37 @@ main:
 		j menuOptsScr		
 	#end pixelAverageCall
 
+	contrastAdjustCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal contrastAdjust
+		j menuOptsScr		
+	#end contrastAdjustCall
+
+	contrastAdjustColoredCall:
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal contrastAdjustColored
+		add $a0, $s0, $zero
+		add $a1, $s1, $zero		
+		jal rotateColors
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal contrastAdjustColored
+		add $a0, $s0, $zero
+		add $a1, $s1, $zero		
+		jal rotateColors
+		add $a0, $s0, $zero
+		la $a1, 0x10008000
+		jal contrastAdjustColored
+		add $a0, $s0, $zero
+		add $a1, $s1, $zero		
+		jal rotateColors	
+
+		j menuOptsScr		
+	#end contrastAdjustColoredCall
+
+
 	#//jal rotateColors
 	#Will read the image from the display segment ($gp) and will apply the rotateColors filter.
 	#	Use: $a0 and $a1 which are the image properties and data, respectively.
@@ -237,20 +273,223 @@ main:
 	jal endProgram #Lembrar de devolver toda a memória
 #end main
 
+contrastAdjustColored:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: Image address beggining address backup
+	#		t2: Image iterative address
+	#		t3: RGB index (0 ~ 2)
+	#		t4: Image index
+	#		t5: Image max number of iterations	
+	#		t6: Max intensity
+	#		t7: Minimum intensity
+	#		t8: Loaded byte
+	#		t9: backup of s
+
+	add $sp, $sp, -32
+	add $t9, $sp, $zero
+	sw $s0, 0($t9)						#3
+	sw $s1, 4($t9)						#index for sll loop
+	sw $s2, 8($t9)						
+	sw $s3, 12($t9)						
+	sw $s4, 16($t9)						
+	sw $s5, 20($t9)						
+	sw $s6, 24($t9)						
+	sw $s7, 28($t9)						
+
+
+	add $t0, $a0, $zero 				#t0: data info address backup
+	add $t1, $a1, $zero 				#t1: Image address beggining address backup
+	li $t3, 0							#t3: RGB index (0 ~ 2)
+	lw $t5, 4($t0)
+	lw $t6, 8($t0)
+	mul $t5, $t5, $t6					#t5: Image max number of iterations	
+	add $t2 $t1, $zero 					#t2: Image iterative address
+	#Quando for iterar de novo adicionar 1 em t2 (para pegar o segundo baite)
+	li $s0, 3
+
+	seekBorderValuesColored:		
+		li $t4, 0							#t4: Image index
+		li $t6, 0					#t6: Max intensity
+		li $t7, 255				#t7: Minimum intensity
+		loop_seekBorderValuesColored:
+			beq $t4, $t5, end_loop_seekBorderValuesColored
+			lbu $t8, 0($t2)
+			bgt $t8, $t6, maximum_seekBorderValuesColored
+			blt $t8, $t7, minimum_seekBorderValuesColored
+			j iterate_seekBorderValuesColored
+
+			maximum_seekBorderValuesColored:
+				add $t6, $t8, $zero
+				j iterate_seekBorderValuesColored
+			#end maximum_seekBorderValuesColored
+
+			minimum_seekBorderValuesColored:
+				add $t7, $t8, $zero
+				j iterate_seekBorderValuesColored
+			#end minimum_seekBorderValuesColored
+
+			iterate_seekBorderValuesColored:
+			#end
+			add $t2, $t2, 4
+			add $t4, $t4, 1
+			j loop_seekBorderValuesColored
+		end_loop_seekBorderValuesColored:
+	#end seekBorderValuesColored
+
+	color_contrastAdjustColored:
+		add $t2, $t1, $zero
+		li $t4, 0
+		#Inew(x,y) = [I(x,y) - Ilow] * [255 / (Ihigh - Ilow)]
+		loop_coolor_contrastAdjustColored:
+			beq $t4, $t5, fim_loop_coolor_contrastAdjustColored
+			lbu $t8, 0($t2)
+			sub $t8, $t8, $t7	#=[I(x,y) - Ilow]
+			sub $s1, $t6, $t7	#=(Ihigh - Ilow)
+			li $s2, 255			#=255
+			div $s1, $s2, $s1  	#		=[255 / (Ihigh - Ilow)]
+			mul $t8, $t8, $s1			
+			sb $t8, 0($t2)			
+			add $t4, $t4, 1
+			add $t2, $t2, 4
+			j loop_coolor_contrastAdjustColored
+		fim_loop_coolor_contrastAdjustColored:
+		#fim
+	#end color_contrastAdjustColored		
+	lw $s0, 0($t9)						
+	lw $s1, 4($t9)						
+	lw $s2, 8($t9)						
+	lw $s3, 12($t9)						
+	lw $s4, 16($t9)						
+	lw $s5, 20($t9)						
+	lw $s6, 24($t9)						
+	lw $s7, 28($t9)		
+	add $sp, $sp, 32
+	jr $ra	
+#end contrastAdjustColored
+
+
+#end contrastAdjustColored
+
+contrastAdjust:
+	#	Register usage:
+	#		t0: data info address backup
+	#		t1: Image address beggining address backup
+	#		t2: Image iterative address
+	#		t3: RGB index (0 ~ 2)
+	#		t4: Image index
+	#		t5: Image max number of iterations	
+	#		t6: Max intensity
+	#		t7: Minimum intensity
+	#		t8: Loaded byte
+	#		t9: backup of s
+
+	add $sp, $sp, -32
+	add $t9, $sp, $zero
+	sw $s0, 0($t9)						#3
+	sw $s1, 4($t9)						#index for sll loop
+	sw $s2, 8($t9)						
+	sw $s3, 12($t9)						
+	sw $s4, 16($t9)						
+	sw $s5, 20($t9)						
+	sw $s6, 24($t9)						
+	sw $s7, 28($t9)						
+
+
+	add $t0, $a0, $zero 				#t0: data info address backup
+	add $t1, $a1, $zero 				#t1: Image address beggining address backup
+	li $t3, 0							#t3: RGB index (0 ~ 2)
+	lw $t5, 4($t0)
+	lw $t6, 8($t0)
+	mul $t5, $t5, $t6					#t5: Image max number of iterations	
+	add $t2 $t1, $zero 					#t2: Image iterative address
+	#Quando for iterar de novo adicionar 1 em t2 (para pegar o segundo baite)
+	li $s0, 3
+
+	seekBorderValues:		
+		li $t4, 0							#t4: Image index
+		li $t6, 0					#t6: Max intensity
+		li $t7, 255				#t7: Minimum intensity
+		loop_seekBorderValues:
+			beq $t4, $t5, end_loop_seekBorderValues
+			lbu $t8, 0($t2)
+			bgt $t8, $t6, maximum_seekBorderValues
+			blt $t8, $t7, minimum_seekBorderValues
+			j iterate_seekBorderValues
+
+			maximum_seekBorderValues:
+				add $t6, $t8, $zero
+				j iterate_seekBorderValues
+			#end maximum_seekBorderValues
+
+			minimum_seekBorderValues:
+				add $t7, $t8, $zero
+				j iterate_seekBorderValues
+			#end minimum_seekBorderValues
+
+			iterate_seekBorderValues:
+			#end
+			add $t2, $t2, 4
+			add $t4, $t4, 1
+			j loop_seekBorderValues
+		end_loop_seekBorderValues:
+	#end seekBorderValues
+
+	color_contrastAdjust:
+		add $t2, $t1, $zero
+		li $t4, 0
+		#Inew(x,y) = [I(x,y) - Ilow] * [255 / (Ihigh - Ilow)]
+		loop_coolor_contrastAdjust:
+			beq $t4, $t5, fim_loop_coolor_contrastAdjust
+			lbu $t8, 0($t2)
+			sub $t8, $t8, $t7	#=[I(x,y) - Ilow]
+			sub $s1, $t6, $t7	#=(Ihigh - Ilow)
+			li $s2, 255			#=255
+			div $s1, $s2, $s1  	#		=[255 / (Ihigh - Ilow)]
+			mul $t8, $t8, $s1			
+			add $s0, $t8, $zero
+			sll $t8, $t8, 8
+			add $s0, $s0, $t8
+			sll $t8, $t8, 8
+			add $s0, $s0, $t8			
+			sw $s0, 0($t2)
+			add $t4, $t4, 1
+			add $t2, $t2, 4
+			j loop_coolor_contrastAdjust
+		fim_loop_coolor_contrastAdjust:
+		#fim
+	#end color_contrastAdjust
+
+		
+	
+			
+	lw $s0, 0($t9)						
+	lw $s1, 4($t9)						
+	lw $s2, 8($t9)						
+	lw $s3, 12($t9)						
+	lw $s4, 16($t9)						
+	lw $s5, 20($t9)						
+	lw $s6, 24($t9)						
+	lw $s7, 28($t9)		
+	add $sp, $sp, 32
+	jr $ra	
+#end contrastAdjust
+
+
 histogram:
 	#This histogram will have validity to a 256 color image, such a greyscale one.
 	#The ideia is to alocate 256 words into stack and each word will have a memory relative position to the first term. This relative 
 	#		position will be the color and the word content will be the number of ocurrences. By doing this we save a lot of operations.
 
 	#	Register usage:
-	#		$t0: data info address backup
-	#		$t1: pixel iterative address
-	#		$t2: stack frame base address
-	#		$t3: iteration index
-	#		$t4: max number of iterations
-	#		$t5: analysed pixel
-	#		$t6: retrieved quantity stored
-	#		$t7: memory address to store new quantity
+	#		t0: data info address backup
+	#		t1: pixel iterative address
+	#		t2: stack frame base address
+	#		t3: iteration index
+	#		t4: max number of iterations
+	#		t5: analysed pixel
+	#		t6: retrieved quantity stored
+	#		t7: memory address to store new quantity
 	add $t0, $a0, $zero 		#$t0: data info address backup
 	add $t1, $a1, $zero 		#$t1: pixel iterative address
 	add $sp, $sp, -1028
