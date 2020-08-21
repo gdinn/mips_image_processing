@@ -17,5 +17,11 @@ The implemented filters are:
 <li>Contrast adjust for grayscale images (better performance) and for colored ones</li>
 </ul>
 
+To print the image go in Tools>Bitmap Display. Choose 512 on width, 512 on height, connect to mips and then build and execute the code.
+
+![The result](bitmap_display.png)
+
+If your bitmap display is configured like the above you are all set.
+
 <p>Author: Igor Godinho Debastiani</p>
 <p>It was made as a college work to the grade Microprocessors at Instituto Federal de Santa Catarina (IFSC). Florianópolis, Brazil.</p>
